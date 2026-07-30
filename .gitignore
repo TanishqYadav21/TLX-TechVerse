@@ -1,0 +1,25 @@
+# Node Modules
+**/node_modules
+
+# Environment
+**/.env
+
+# Next.js
+**/.next
+out
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Build
+dist
+build
+
+# VS Code
+.vscode
+
+# OS Files
+.DS_Store
+Thumbs.db
