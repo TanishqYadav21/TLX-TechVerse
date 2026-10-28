@@ -1,85 +1,121 @@
 "use client";
 
-import { ArrowRight, Code2, Brain, Briefcase } from "lucide-react";
+import Link from "next/link";
 import { motion } from "framer-motion";
+import { ArrowRight, Code2, Brain, FileText } from "lucide-react";
 
 export default function Hero() {
   return (
     <section className="relative overflow-hidden">
-      <div className="mx-auto flex min-h-[90vh] max-w-7xl flex-col items-center justify-center px-6 text-center">
+      {/* Background */}
+      <div className="absolute inset-0 -z-10 bg-gradient-to-br from-blue-50 via-white to-indigo-100 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950" />
 
-        <motion.span
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mb-6 rounded-full border border-blue-500/30 bg-blue-500/10 px-4 py-2 text-sm font-medium text-blue-500"
-        >
-          🚀 India's Smart Placement Preparation Platform
-        </motion.span>
+      <div className="mx-auto flex min-h-[90vh] max-w-7xl flex-col items-center justify-between gap-16 px-6 py-20 lg:flex-row">
 
-        <motion.h1
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: .2 }}
-          className="max-w-4xl text-5xl font-extrabold leading-tight md:text-7xl"
-        >
-          Crack Your Dream
-          <span className="text-blue-600"> Placement </span>
-          with AI
-        </motion.h1>
-
-        <motion.p
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: .4 }}
-          className="mt-8 max-w-2xl text-lg text-muted-foreground"
-        >
-          Practice Coding, Aptitude, Core Subjects, Resume Building and
-          AI Mock Interviews — all in one platform.
-        </motion.p>
-
+        {/* LEFT */}
         <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: .6 }}
-          className="mt-10 flex flex-wrap justify-center gap-4"
+          initial={{ opacity: 0, x: -40 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.7 }}
+          className="max-w-2xl"
         >
-          <button className="rounded-xl bg-blue-600 px-7 py-3 font-semibold text-white hover:bg-blue-700 transition">
-            Get Started
-          </button>
+          <span className="rounded-full bg-blue-100 px-4 py-2 text-sm font-semibold text-blue-700 dark:bg-blue-900 dark:text-blue-200">
+            🚀 AI Powered Placement Platform
+          </span>
 
-          <button className="flex items-center gap-2 rounded-xl border px-7 py-3 hover:bg-accent transition">
-            Explore
-            <ArrowRight size={18} />
-          </button>
+          <h1 className="mt-8 text-5xl font-extrabold leading-tight md:text-7xl">
+            Ace Your
+            <span className="block bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+              Placement Journey
+            </span>
+          </h1>
+
+          <p className="mt-6 text-lg text-gray-600 dark:text-gray-300">
+            Practice Coding, Aptitude, AI Interviews, Resume Building and
+            everything you need to crack placements — all in one platform.
+          </p>
+
+          <div className="mt-10 flex flex-wrap gap-4">
+            <Link
+              href="/signup"
+              className="flex items-center gap-2 rounded-xl bg-blue-600 px-6 py-3 font-semibold text-white transition hover:bg-blue-700"
+            >
+              Get Started
+              <ArrowRight size={18} />
+            </Link>
+
+            <Link
+              href="/features"
+              className="rounded-xl border px-6 py-3 font-semibold transition hover:bg-gray-100 dark:hover:bg-slate-800"
+            >
+              Explore Features
+            </Link>
+          </div>
+
+          <div className="mt-12 flex gap-10">
+            <div>
+              <h2 className="text-3xl font-bold">10K+</h2>
+              <p className="text-gray-500">Students</p>
+            </div>
+
+            <div>
+              <h2 className="text-3xl font-bold">500+</h2>
+              <p className="text-gray-500">Companies</p>
+            </div>
+
+            <div>
+              <h2 className="text-3xl font-bold">95%</h2>
+              <p className="text-gray-500">Success</p>
+            </div>
+          </div>
         </motion.div>
 
-        <div className="mt-16 grid w-full max-w-5xl grid-cols-1 gap-6 md:grid-cols-3">
+        {/* RIGHT */}
+        <motion.div
+          initial={{ opacity: 0, x: 40 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.8 }}
+          className="relative w-full max-w-lg"
+        >
+          <div className="rounded-3xl border bg-white/70 p-8 shadow-2xl backdrop-blur dark:bg-slate-900/70">
 
-          <div className="rounded-2xl border p-6 backdrop-blur">
-            <Code2 className="mb-4 text-blue-600" size={40} />
-            <h3 className="text-xl font-bold">Coding Practice</h3>
-            <p className="mt-2 text-muted-foreground">
-              Solve company-wise coding questions with an online compiler.
-            </p>
+            <h3 className="mb-8 text-2xl font-bold">
+              Student Dashboard
+            </h3>
+
+            <div className="space-y-5">
+
+              <div className="flex items-center justify-between rounded-xl bg-blue-50 p-4 dark:bg-slate-800">
+                <div className="flex items-center gap-3">
+                  <Code2 className="text-blue-600" />
+                  <span>Coding Progress</span>
+                </div>
+
+                <strong>154 Qs</strong>
+              </div>
+
+              <div className="flex items-center justify-between rounded-xl bg-green-50 p-4 dark:bg-slate-800">
+                <div className="flex items-center gap-3">
+                  <Brain className="text-green-600" />
+                  <span>Aptitude</span>
+                </div>
+
+                <strong>82%</strong>
+              </div>
+
+              <div className="flex items-center justify-between rounded-xl bg-orange-50 p-4 dark:bg-slate-800">
+                <div className="flex items-center gap-3">
+                  <FileText className="text-orange-600" />
+                  <span>Resume Score</span>
+                </div>
+
+                <strong>91/100</strong>
+              </div>
+
+            </div>
           </div>
+        </motion.div>
 
-          <div className="rounded-2xl border p-6 backdrop-blur">
-            <Brain className="mb-4 text-purple-600" size={40} />
-            <h3 className="text-xl font-bold">AI Interview</h3>
-            <p className="mt-2 text-muted-foreground">
-              Practice HR & Technical interviews with AI feedback.
-            </p>
-          </div>
-
-          <div className="rounded-2xl border p-6 backdrop-blur">
-            <Briefcase className="mb-4 text-green-600" size={40} />
-            <h3 className="text-xl font-bold">Placement Ready</h3>
-            <p className="mt-2 text-muted-foreground">
-              Aptitude, Resume Builder and Interview preparation in one place.
-            </p>
-          </div>
-
-        </div>
       </div>
     </section>
   );

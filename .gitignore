@@ -1,25 +1,38 @@
-# Node Modules
-**/node_modules
+# Dependencies
+**/node_modules/
+.venv/
 
-# Environment
-**/.env
+# Environment secrets
+.env
+.env.*
+!.env.example
 
 # Next.js
-**/.next
-out
+**/.next/
+**/out/
+**/build/
+**/dist/
 
-# Logs
+# Python
+**/__pycache__/
+*.pyc
+
+# Logs and generated files
 npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# Build
-dist
-build
-
-# VS Code
-.vscode
-
-# OS Files
+*.tsbuildinfo
 .DS_Store
 Thumbs.db
+.vscode/
+
+**/.env
+**/.env.local
+**/node_modules/
+**/__pycache__/
+
+backend/outputs
+backend/temp
+backend/compiler/
+frontend/tsconfig.tsbuildinfo
+
+
+test.http
