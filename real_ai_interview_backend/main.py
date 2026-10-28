@@ -10,22 +10,26 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 # ============================================================
-# LOCAL AI CONFIG
+# HOSTED AI CONFIG (Hugging Face Inference Providers)
 # ============================================================
-OLLAMA_URL = os.getenv("OLLAMA_URL", "http://127.0.0.1:11434")
-OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.2:1b")
-
-# Small context + small output = faster local interview.
-OLLAMA_TIMEOUT = 45
+HF_TOKEN = os.getenv("HF_TOKEN", "")
+HF_MODEL = os.getenv("HF_MODEL", "openai/gpt-oss-120b:fastest")
+HF_API_URL = "https://router.huggingface.co/v1/chat/completions"
+HF_TIMEOUT = 60
 
 app = FastAPI(title="TLX TechVerse Real AI Interview")
 
+allowed_origins = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+]
+frontend_url = os.getenv("FRONTEND_URL", "").strip().rstrip("/")
+if frontend_url:
+    allowed_origins.append(frontend_url)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-    ],
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -97,71 +101,77 @@ def extract_resume_facts(resume: str) -> str:
 
 def ollama(prompt: str) -> dict:
     """
-    ONE short Ollama call.
-    No separate answer-evaluation call.
+    One short hosted-model call through Hugging Face Inference Providers.
+    The function name is retained so the existing interview routes need no changes.
     """
+    if not HF_TOKEN:
+        raise RuntimeError("HF_TOKEN is not configured in the hosting environment.")
+
     payload = {
-        "model": OLLAMA_MODEL,
+        "model": HF_MODEL,
         "stream": False,
-        "keep_alive": -1,
-        "format": "json",
         "messages": [
             {
                 "role": "system",
                 "content": (
                     "You are a realistic software placement interviewer. "
-                    "Return only JSON. Ask exactly one short question. "
+                    "Return only valid JSON. Ask exactly one short question. "
                     "Never invent anything not supported by the resume or "
                     "candidate answer. Never ask a random generic question."
                 ),
             },
-            {
-                "role": "user",
-                "content": prompt,
-            },
+            {"role": "user", "content": prompt},
         ],
-        "options": {
-            "temperature": 0.15,
-            "num_ctx": 2048,
-            "num_predict": 100,
-        },
+        "temperature": 0.15,
+        "max_tokens": 350,
+    }
+    headers = {
+        "Authorization": f"Bearer {HF_TOKEN}",
+        "Content-Type": "application/json",
     }
 
     try:
         r = requests.post(
-            f"{OLLAMA_URL}/api/chat",
+            HF_API_URL,
+            headers=headers,
             json=payload,
-            timeout=OLLAMA_TIMEOUT,
+            timeout=HF_TIMEOUT,
         )
-    except requests.exceptions.ReadTimeout:
-        raise RuntimeError(
-            "Local AI timed out. Ollama is running, but the interview "
-            "prompt is taking too long."
-        )
+    except requests.exceptions.Timeout:
+        raise RuntimeError("Hosted AI timed out. Please try again.")
+    except requests.exceptions.RequestException as e:
+        raise RuntimeError(f"Could not connect to hosted AI: {e}")
 
     if not r.ok:
-        raise RuntimeError(
-            f"Ollama HTTP {r.status_code}: {r.text[:400]}"
-        )
+        detail = r.text[:500]
+        if r.status_code in (401, 403):
+            raise RuntimeError(
+                "Hugging Face rejected HF_TOKEN or its Inference Providers permission. "
+                f"API response: {detail}"
+            )
+        raise RuntimeError(f"Hugging Face API HTTP {r.status_code}: {detail}")
 
-    content = r.json().get("message", {}).get("content", "").strip()
+    try:
+        content = r.json()["choices"][0]["message"]["content"].strip()
+    except (ValueError, KeyError, IndexError, TypeError):
+        raise RuntimeError(f"Hosted AI returned an unexpected response: {r.text[:300]}")
 
     if not content:
-        raise RuntimeError("Local AI returned an empty response.")
+        raise RuntimeError("Hosted AI returned an empty response.")
 
-    # Be tolerant of accidental markdown fences.
+    # Be tolerant of accidental markdown fences or extra text around JSON.
     content = re.sub(r"^```json\s*", "", content, flags=re.I)
     content = re.sub(r"\s*```$", "", content)
+    start_json = content.find("{")
+    end_json = content.rfind("}")
 
-    start = content.find("{")
-    end = content.rfind("}")
+    if start_json == -1 or end_json <= start_json:
+        raise RuntimeError(f"Hosted AI returned invalid JSON: {content[:250]}")
 
-    if start == -1 or end <= start:
-        raise RuntimeError(
-            f"Local AI returned invalid JSON: {content[:250]}"
-        )
-
-    return json.loads(content[start:end + 1])
+    try:
+        return json.loads(content[start_json:end_json + 1])
+    except json.JSONDecodeError as e:
+        raise RuntimeError(f"Hosted AI returned invalid JSON: {e}")
 
 
 def safe_question(data: dict) -> str:
@@ -181,38 +191,14 @@ def safe_question(data: dict) -> str:
 # ============================================================
 @app.get("/health")
 def health():
-    try:
-        r = requests.get(
-            f"{OLLAMA_URL}/api/tags",
-            timeout=5,
-        )
-        r.raise_for_status()
-
-        models = r.json().get("models", [])
-        names = [m.get("name", "") for m in models]
-
-        installed = any(
-            name == OLLAMA_MODEL
-            or name.startswith(OLLAMA_MODEL + ":")
-            for name in names
-        )
-
-        return {
-            "ok": True,
-            "ollama": True,
-            "model": OLLAMA_MODEL,
-            "model_installed": installed,
-        }
-
-    except Exception as e:
-        return {
-            "ok": False,
-            "ollama": False,
-            "model": OLLAMA_MODEL,
-            "model_installed": False,
-            "error": str(e),
-        }
-
+    configured = bool(HF_TOKEN)
+    return {
+        "ok": configured,
+        "provider": "huggingface-inference-providers",
+        "model": HF_MODEL,
+        "configured": configured,
+        "error": None if configured else "HF_TOKEN is not configured.",
+    }
 
 # ============================================================
 # START
