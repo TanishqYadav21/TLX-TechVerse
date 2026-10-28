@@ -10,12 +10,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 # ============================================================
-# HOSTED AI CONFIG (Hugging Face Inference Providers)
+# HOSTED AI CONFIG (Google Gemini API)
 # ============================================================
-HF_TOKEN = os.getenv("HF_TOKEN", "")
-HF_MODEL = os.getenv("HF_MODEL", "openai/gpt-oss-120b:fastest")
-HF_API_URL = "https://router.huggingface.co/v1/chat/completions"
-HF_TIMEOUT = 60
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+GEMINI_TIMEOUT = 60
 
 app = FastAPI(title="TLX TechVerse Real AI Interview")
 
@@ -101,77 +100,74 @@ def extract_resume_facts(resume: str) -> str:
 
 def ollama(prompt: str) -> dict:
     """
-    One short hosted-model call through Hugging Face Inference Providers.
-    The function name is retained so the existing interview routes need no changes.
+    One hosted Gemini call. Function name is retained so existing interview
+    routes keep working without other changes.
     """
-    if not HF_TOKEN:
-        raise RuntimeError("HF_TOKEN is not configured in the hosting environment.")
+    if not GEMINI_API_KEY:
+        raise RuntimeError("GEMINI_API_KEY is not configured in the hosting environment.")
 
+    url = (
+        "https://generativelanguage.googleapis.com/v1beta/models/"
+        f"{GEMINI_MODEL}:generateContent"
+    )
+    headers = {
+        "x-goog-api-key": GEMINI_API_KEY,
+        "Content-Type": "application/json",
+    }
     payload = {
-        "model": HF_MODEL,
-        "stream": False,
-        "messages": [
-            {
-                "role": "system",
-                "content": (
+        "systemInstruction": {
+            "parts": [{
+                "text": (
                     "You are a realistic software placement interviewer. "
                     "Return only valid JSON. Ask exactly one short question. "
                     "Never invent anything not supported by the resume or "
                     "candidate answer. Never ask a random generic question."
-                ),
-            },
-            {"role": "user", "content": prompt},
-        ],
-        "temperature": 0.15,
-        "max_tokens": 350,
-    }
-    headers = {
-        "Authorization": f"Bearer {HF_TOKEN}",
-        "Content-Type": "application/json",
+                )
+            }]
+        },
+        "contents": [{"role": "user", "parts": [{"text": prompt}]}],
+        "generationConfig": {
+            "temperature": 0.15,
+            "responseMimeType": "application/json",
+            "maxOutputTokens": 500,
+        },
     }
 
     try:
-        r = requests.post(
-            HF_API_URL,
-            headers=headers,
-            json=payload,
-            timeout=HF_TIMEOUT,
-        )
+        r = requests.post(url, headers=headers, json=payload, timeout=GEMINI_TIMEOUT)
     except requests.exceptions.Timeout:
-        raise RuntimeError("Hosted AI timed out. Please try again.")
+        raise RuntimeError("Gemini AI timed out. Please try again.")
     except requests.exceptions.RequestException as e:
-        raise RuntimeError(f"Could not connect to hosted AI: {e}")
+        raise RuntimeError(f"Could not connect to Gemini API: {e}")
 
     if not r.ok:
         detail = r.text[:500]
         if r.status_code in (401, 403):
-            raise RuntimeError(
-                "Hugging Face rejected HF_TOKEN or its Inference Providers permission. "
-                f"API response: {detail}"
-            )
-        raise RuntimeError(f"Hugging Face API HTTP {r.status_code}: {detail}")
+            raise RuntimeError(f"Gemini rejected the API key or access: {detail}")
+        if r.status_code == 429:
+            raise RuntimeError(f"Gemini quota/rate limit reached: {detail}")
+        raise RuntimeError(f"Gemini API HTTP {r.status_code}: {detail}")
 
     try:
-        content = r.json()["choices"][0]["message"]["content"].strip()
+        content = r.json()["candidates"][0]["content"]["parts"][0]["text"].strip()
     except (ValueError, KeyError, IndexError, TypeError):
-        raise RuntimeError(f"Hosted AI returned an unexpected response: {r.text[:300]}")
+        raise RuntimeError(f"Gemini returned an unexpected response: {r.text[:300]}")
 
     if not content:
-        raise RuntimeError("Hosted AI returned an empty response.")
+        raise RuntimeError("Gemini returned an empty response.")
 
-    # Be tolerant of accidental markdown fences or extra text around JSON.
     content = re.sub(r"^```json\s*", "", content, flags=re.I)
     content = re.sub(r"\s*```$", "", content)
     start_json = content.find("{")
     end_json = content.rfind("}")
 
     if start_json == -1 or end_json <= start_json:
-        raise RuntimeError(f"Hosted AI returned invalid JSON: {content[:250]}")
+        raise RuntimeError(f"Gemini returned invalid JSON: {content[:250]}")
 
     try:
         return json.loads(content[start_json:end_json + 1])
     except json.JSONDecodeError as e:
-        raise RuntimeError(f"Hosted AI returned invalid JSON: {e}")
+        raise RuntimeError(f"Gemini returned invalid JSON: {e}")
 
 
 def safe_question(data: dict) -> str:
@@ -191,13 +187,13 @@ def safe_question(data: dict) -> str:
 # ============================================================
 @app.get("/health")
 def health():
-    configured = bool(HF_TOKEN)
+    configured = bool(GEMINI_API_KEY)
     return {
         "ok": configured,
-        "provider": "huggingface-inference-providers",
-        "model": HF_MODEL,
+        "provider": "google-gemini",
+        "model": GEMINI_MODEL,
         "configured": configured,
-        "error": None if configured else "HF_TOKEN is not configured.",
+        "error": None if configured else "GEMINI_API_KEY is not configured.",
     }
 
 # ============================================================
