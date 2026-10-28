@@ -56,7 +56,7 @@ export default function SignupForm() {
 
     try {
       const res = await fetch(
-        "http://localhost:5000/api/auth/signup",
+        "https://tlx-techverse-backend.onrender.com/api/auth/signup",
         {
           method: "POST",
           headers: {
